@@ -21,3 +21,9 @@
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+BXRPTK-LVSYFIT-5YDJWAT-XG7EYE
+
+PLAID_CLIENT_ID=68547ef34ac5c0002193e0a6
+PLAID_SECRET=d423e997ec92d4f9e3fbcf30c332ac
+PLAID_ENV=production

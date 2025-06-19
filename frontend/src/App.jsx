@@ -1,10 +1,10 @@
-import Transactions from './components/Transactions';
+import BankButton from './components/BankButton';
 
 function App() {
   return (
     <div className="App">
       <h1>My Budget</h1>
-      <Transactions />
+      <BankButton />
     </div>
   );
 }

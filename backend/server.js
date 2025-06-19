@@ -23,3 +23,17 @@ app.post('/transactions', async (req, res) => {
 });
 
 app.listen(5000, () => console.log("Server running on port 5000"));
+
+const { Configuration, PlaidApi, PlaidEnvironments } = require('plaid');
+
+const configuration = new Configuration({
+  basePath: PlaidEnvironments[process.env.PLAID_ENV || 'sandbox'],
+  baseOptions: {
+    headers: {
+      'PLAID-CLIENT-ID': process.env.PLAID_CLIENT_ID,
+      'PLAID-SECRET': process.env.PLAID_SECRET,
+    },
+  },
+});
+
+const plaid = new PlaidApi(configuration);
