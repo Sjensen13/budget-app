@@ -1,24 +1,39 @@
-import { usePlaidLink } from 'react-plaid-link';
+import { useState } from 'react';
 
 function BankButton() {
-  const onSuccess = async (public_token) => {
-    const res = await fetch("http://localhost:5000/exchange_token", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ public_token }),
-    });
-    const data = await res.json();
-    console.log("Access token response:", data);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleBankLink = async () => {
+    setIsLoading(true);
+    try {
+      // Placeholder for bank linking functionality
+      console.log("Bank linking functionality will be implemented here");
+      alert("Bank linking feature coming soon!");
+    } catch (error) {
+      console.error("Error linking bank:", error);
+      alert("Error linking bank account");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const config = {
-    token: "<GENERATED_LINK_TOKEN>",
-    onSuccess,
-  };
-
-  const { open, ready } = usePlaidLink(config);
-
-  return <button onClick={() => open()} disabled={!ready}>Link Bank</button>;
+  return (
+    <button 
+      onClick={handleBankLink} 
+      disabled={isLoading}
+      style={{
+        padding: '10px 20px',
+        backgroundColor: '#007bff',
+        color: 'white',
+        border: 'none',
+        borderRadius: '5px',
+        cursor: isLoading ? 'not-allowed' : 'pointer',
+        opacity: isLoading ? 0.7 : 1
+      }}
+    >
+      {isLoading ? 'Linking...' : 'Link Bank'}
+    </button>
+  );
 }
 
 export default BankButton;

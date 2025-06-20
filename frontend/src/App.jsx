@@ -1,12 +1,7 @@
-import BankButton from './components/BankButton';
+import AuthPage from './pages/AuthPage';
 
 function App() {
-  return (
-    <div className="App">
-      <h1>My Budget</h1>
-      <BankButton />
-    </div>
-  );
+  return <AuthPage />;
 }
 
 export default App;
