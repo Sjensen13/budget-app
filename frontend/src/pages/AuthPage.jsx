@@ -50,7 +50,9 @@ export default function AuthPage() {
         });
         if (error) throw error;
         setMessage("Logged in successfully!"); // Show success message
-        // TODO: Redirect or update global state here
+        setTimeout(() => {
+          navigate("/budget");
+        }, 2000);
       }
     } catch (error) {
       setMessage(error.message); // Show any error messages

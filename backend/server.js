@@ -7,7 +7,11 @@ const app = express();          // Creates an Express application
 app.use(cors());                // Enables CORS so frontend can call backend (bypasses security errors)
 app.use(express.json());        // Tells Express to parse JSON bodies in incoming requests
 
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
+const supabase = createClient(
+  process.env.SUPABASE_URL, 
+  process.env.SUPABASE_KEY,
+  { auth: { persistSession: false } } // Recommended for server-side environments
+);
 
 // Import and use routes
 const transactionsRouter = require('./routes/transactions');
@@ -15,19 +19,67 @@ app.use('/api/transactions', transactionsRouter);
 
 // Legacy endpoints for backward compatibility
 app.get('/transactions', async (req, res) => {
-  const { data, error } = await supabase.from('transactions').select('*');
-  if (error) return res.status(500).json({ error });
-  res.json(data);
+  try {
+    // Verify JWT token
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Authorization header required' });
+    }
+
+    const token = authHeader.split(' ')[1];
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    
+    if (authError || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const { data, error } = await supabase
+      .from('transactions')
+      .select('*')
+      .eq('user_id', user.id);
+    
+    if (error) return res.status(500).json({ error });
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 app.post('/transactions', async (req, res) => {
-  const { type, category, amount, date } = req.body;
-  const { data, error } = await supabase.from('transactions').insert([{ type, category, amount, date }]);
-  if (error) return res.status(500).json({ error });
-  res.status(201).json(data);
+  try {
+    const { type, category, amount, date } = req.body;
+    
+    // Verify JWT token
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Authorization header required' });
+    }
+
+    const token = authHeader.split(' ')[1];
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    
+    if (authError || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+    
+    const { data, error } = await supabase
+      .from('transactions')
+      .insert([{ 
+        user_id: user.id,
+        type, 
+        category, 
+        amount, 
+        date 
+      }]);
+    
+    if (error) return res.status(500).json({ error });
+    res.status(201).json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
-app.listen(5000, () => console.log("Server running on port 5000"));
+app.listen(5001, () => console.log("Server running on port 5001"));
 
 const { Configuration, PlaidApi, PlaidEnvironments } = require('plaid');
 

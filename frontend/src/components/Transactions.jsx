@@ -5,7 +5,7 @@ export default function Transactions() {
   const [tx, setTx] = useState([]);
 
   useEffect(() => {
-    axios.get('http://localhost:5000/transactions')
+    axios.get('http://localhost:5001/transactions')
       .then(res => setTx(res.data))
       .catch(err => console.error(err));
   }, []);

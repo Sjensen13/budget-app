@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import supabase from "../supabaseClient";
+import axios from "axios";
 import "./TransactionPage.css";
 
 export default function TransactionPage() {
@@ -63,16 +64,23 @@ export default function TransactionPage() {
       
       if (!user) return;
 
-      const { data, error } = await supabase
-        .from('transactions')
-        .select('*')
-        .order('date', { ascending: false });
+      // Get the session token to pass to backend
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        throw new Error("No active session");
+      }
 
-      if (error) throw error;
-      setTransactions(data || []);
+      const response = await axios.get('http://localhost:5001/api/transactions', {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`
+        }
+      });
+
+      setTransactions(response.data || []);
     } catch (error) {
       console.error("Error loading transactions:", error);
-      setMessage("Error loading transactions: " + error.message);
+      setMessage("Error loading transactions: " + (error.response?.data?.error || error.message));
     } finally {
       setIsLoading(false);
     }
@@ -94,6 +102,13 @@ export default function TransactionPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("User not authenticated.");
 
+      // Get the session token to pass to backend
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        throw new Error("No active session");
+      }
+
       const transactionData = {
         type: newTransaction.type,
         category: newTransaction.category,
@@ -101,13 +116,14 @@ export default function TransactionPage() {
         date: newTransaction.date
       };
 
-      const { data, error } = await supabase
-        .from('transactions')
-        .insert([transactionData]);
+      const response = await axios.post('http://localhost:5001/api/transactions', transactionData, {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
+        }
+      });
 
-      if (error) throw error;
-
-      setTransactions(prev => [data[0], ...prev]);
+      setTransactions(prev => [response.data, ...prev]);
       setNewTransaction({
         type: 'expense',
         category: '',
@@ -120,7 +136,7 @@ export default function TransactionPage() {
       // Clear success message after 3 seconds
       setTimeout(() => setMessage(""), 3000);
     } catch (error) {
-      setMessage("Error adding transaction: " + error.message);
+      setMessage("Error adding transaction: " + (error.response?.data?.error || error.message));
     } finally {
       setIsLoading(false);
     }
@@ -130,19 +146,25 @@ export default function TransactionPage() {
     if (!window.confirm("Are you sure you want to delete this transaction?")) return;
     
     try {
-      const { error } = await supabase
-        .from('transactions')
-        .delete()
-        .eq('id', transactionId);
+      // Get the session token to pass to backend
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        throw new Error("No active session");
+      }
 
-      if (error) throw error;
+      await axios.delete(`http://localhost:5001/api/transactions/${transactionId}`, {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`
+        }
+      });
 
       setTransactions(prev => prev.filter(t => t.id !== transactionId));
       setMessage("Transaction deleted successfully!");
       
       setTimeout(() => setMessage(""), 3000);
     } catch (error) {
-      setMessage("Error deleting transaction: " + error.message);
+      setMessage("Error deleting transaction: " + (error.response?.data?.error || error.message));
     }
   };
 

@@ -4,12 +4,42 @@ const { createClient } = require('@supabase/supabase-js');
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
+// Middleware to verify JWT token
+const verifyToken = async (req, res, next) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Authorization header required' });
+    }
+
+    const token = authHeader.split(' ')[1];
+    
+    // Verify the JWT token with Supabase
+    const { data: { user }, error } = await supabase.auth.getUser(token);
+    
+    if (error || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    req.user = user;
+    req.token = token; // Pass the token to the next handler
+    next();
+  } catch (error) {
+    console.error('Token verification error:', error);
+    res.status(401).json({ error: 'Token verification failed' });
+  }
+};
+
+// Apply token verification to all routes
+router.use(verifyToken);
+
 // Get all transactions
 router.get('/', async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('transactions')
       .select('*')
+      .eq('user_id', req.user.id)
       .order('date', { ascending: false });
 
     if (error) throw error;
@@ -25,16 +55,36 @@ router.post('/', async (req, res) => {
   try {
     const { type, category, amount, date } = req.body;
     
+    console.log("Supabase URL:", process.env.SUPABASE_URL);
+    console.log("Supabase Anon Key:", process.env.SUPABASE_KEY);
+
+    // Create a new Supabase client for THIS REQUEST, authenticated as the user.
+    // This ensures that RLS policies with auth.uid() work correctly.
+    const supabaseUserClient = createClient(
+      process.env.SUPABASE_URL,
+      process.env.SUPABASE_KEY, // Use the public ANON key for this client
+      {
+        global: {
+          headers: { Authorization: `Bearer ${req.token}` }
+        }
+      }
+    );
+
     const transactionData = {
+      // We still pass user_id so the database doesn't have to look it up,
+      // but the RLS policy will now check it against a valid session.
+      user_id: req.user.id,
       type,
       category,
       amount: parseFloat(amount),
       date
     };
 
-    const { data, error } = await supabase
+    // Use the USER-SPECIFIC client to perform the insert
+    const { data, error } = await supabaseUserClient
       .from('transactions')
-      .insert([transactionData]);
+      .insert([transactionData])
+      .select();
 
     if (error) throw error;
     res.status(201).json(data[0]);
@@ -60,7 +110,9 @@ router.put('/:id', async (req, res) => {
     const { data, error } = await supabase
       .from('transactions')
       .update(updateData)
-      .eq('id', id);
+      .eq('id', id)
+      .eq('user_id', req.user.id)
+      .select();
 
     if (error) throw error;
     res.json(data[0]);
@@ -74,10 +126,12 @@ router.put('/:id', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
+    
     const { error } = await supabase
       .from('transactions')
       .delete()
-      .eq('id', id);
+      .eq('id', id)
+      .eq('user_id', req.user.id);
 
     if (error) throw error;
     res.json({ message: 'Transaction deleted successfully' });
@@ -92,7 +146,8 @@ router.get('/stats', async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('transactions')
-      .select('type, amount');
+      .select('type, amount')
+      .eq('user_id', req.user.id);
 
     if (error) throw error;
 
