@@ -49,9 +49,45 @@ export default function BudgetPage() {
     }
   }, [navigate]);
 
+  const loadExistingBudget = useCallback(async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) return;
+
+      // Fetch existing budget for this user
+      const { data, error } = await supabase
+        .from('budgets')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
+
+      if (error && error.code !== 'PGRST116') { // PGRST116 is "not found" error
+        throw error;
+      }
+
+      if (data && data.categories) {
+        // Update the expense categories with existing budget data
+        setExpenseCategories(prev => 
+          prev.map(cat => {
+            const existingCat = data.categories.find(existing => existing.id === cat.id);
+            return existingCat ? { ...cat, ...existingCat } : cat;
+          })
+        );
+      }
+    } catch (error) {
+      console.error("Error loading existing budget:", error);
+      // Don't show error to user as this is not critical
+    }
+  }, []);
+
   useEffect(() => {
-    fetchUserProfile();
-  }, [fetchUserProfile]);
+    const initializeData = async () => {
+      await fetchUserProfile();
+      await loadExistingBudget();
+    };
+    initializeData();
+  }, [fetchUserProfile, loadExistingBudget]);
 
   const toggleCategorySelection = (categoryId) => {
     setExpenseCategories(prev => 
@@ -77,23 +113,48 @@ export default function BudgetPage() {
     setIsLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      
-      const selectedCategories = expenseCategories.filter(cat => cat.selected);
-      
-      // Save budget data to database
-      const { error } = await supabase
-        .from('budgets')
-        .upsert({
-          user_id: user.id,
-          categories: selectedCategories,
-          total_budget: selectedCategories.reduce((sum, cat) => sum + cat.budget, 0),
-          created_at: new Date().toISOString()
-        });
+      if (!user) throw new Error("User not authenticated.");
 
-      if (error) throw error;
+      const selectedCategories = expenseCategories.filter(cat => cat.selected);
+
+      // Fetch all existing budgets for the user, newest first.
+      const { data: existingBudgets, error: fetchError } = await supabase
+        .from('budgets')
+        .select('id, created_at')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (fetchError) throw fetchError;
+
+      const budgetData = {
+        user_id: user.id,
+        categories: selectedCategories,
+        total_budget: selectedCategories.reduce((sum, cat) => sum + cat.budget, 0),
+        updated_at: new Date().toISOString()
+      };
+
+      let result;
+      if (existingBudgets && existingBudgets.length > 0) {
+        // If one or more budgets exist, update the most recent one.
+        const budgetToUpdate = existingBudgets[0];
+        result = await supabase
+          .from('budgets')
+          .update(budgetData)
+          .eq('id', budgetToUpdate.id);
+      } else {
+        // If no budget exists, create a new one.
+        budgetData.created_at = new Date().toISOString();
+        result = await supabase
+          .from('budgets')
+          .insert(budgetData);
+      }
+
+      if (result.error) throw result.error;
+
       setMessage("Budget saved successfully!");
+
     } catch (error) {
-      setMessage("Error saving budget: " + error.message);
+      setMessage(`Error saving budget: ${error.message}`);
     } finally {
       setIsLoading(false);
     }

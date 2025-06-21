@@ -83,16 +83,6 @@ export default function SignUpInfoPage() {
               required
             />
           </div>
-          <div className="credit-card-info">
-            <label htmlFor="creditCardNumber">Credit Card Number</label>
-            <input
-              id="creditCardNumber"
-              type="text"
-              placeholder="Enter your credit card number"
-              value={creditCardNumber}
-              onChange={(e) => setCreditCardNumber(e.target.value)}
-            />
-          </div>
           <div className="yearly-income-info">
             <label htmlFor="yearlyIncome">Yearly Income</label>
             <select
