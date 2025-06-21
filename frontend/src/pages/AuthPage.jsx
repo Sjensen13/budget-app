@@ -1,4 +1,5 @@
 import { useState } from "react"; // React hook to manage component state
+import { useNavigate } from "react-router-dom";
 import supabase from "../supabaseClient"; // Import the Supabase client for auth functions
 import "./AuthPage.css"; // Import CSS styling for the auth page
 
@@ -9,6 +10,7 @@ export default function AuthPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
   const [message, setMessage] = useState("");
+  const navigate = useNavigate();
 
   // Handle login or sign up when the form is submitted
   const handleAuth = async (e) => {
@@ -19,15 +21,30 @@ export default function AuthPage() {
     try {
       if (isSignUp) {
         // Sign up the user
-        const { error, data } = await supabase.auth.signUp({
+        const { error } = await supabase.auth.signUp({
           email,
           password,
         });
         if (error) throw error; // If there's an error, handle it
-        setMessage("Check your email for the confirmation link!"); // Prompt user to verify email
+        
+        // After successful sign-up, automatically sign them in
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+        
+        if (signInError) throw signInError;
+        
+        setMessage("Account created and signed in successfully!"); // Show success message
+        
+        // Wait for a bit to let the user see the message, then redirect
+        setTimeout(() => {
+          navigate('/complete-profile');
+        }, 2000);
+
       } else {
         // Sign in the user
-        const { error, data } = await supabase.auth.signInWithPassword({
+        const { error } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
