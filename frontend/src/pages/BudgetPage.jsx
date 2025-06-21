@@ -269,13 +269,22 @@ export default function BudgetPage() {
             </div>
           )}
           
-          <button 
-            className="save-budget-btn"
-            onClick={saveBudget}
-            disabled={isLoading}
-          >
-            {isLoading ? 'Saving...' : 'Save Budget'}
-          </button>
+          <div className="action-buttons">
+            <button 
+              className="save-budget-btn"
+              onClick={saveBudget}
+              disabled={isLoading}
+            >
+              {isLoading ? 'Saving...' : 'Save Budget'}
+            </button>
+            
+            <button 
+              className="nav-btn"
+              onClick={() => navigate('/transactions')}
+            >
+              Track Transactions →
+            </button>
+          </div>
         </div>
       </div>
     </div>

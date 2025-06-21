@@ -9,6 +9,11 @@ app.use(express.json());        // Tells Express to parse JSON bodies in incomin
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
+// Import and use routes
+const transactionsRouter = require('./routes/transactions');
+app.use('/api/transactions', transactionsRouter);
+
+// Legacy endpoints for backward compatibility
 app.get('/transactions', async (req, res) => {
   const { data, error } = await supabase.from('transactions').select('*');
   if (error) return res.status(500).json({ error });
