@@ -12,6 +12,7 @@ import { useState, useEffect, useCallback } from "react"; // React hooks for sta
 import { useNavigate } from "react-router-dom"; // Hook for navigation
 import supabase from "../supabaseClient"; // Supabase client for user authentication
 import axios from "axios"; // HTTP client for API requests to backend
+import LogoutButton from "../components/LogoutButton"; // Logout button component
 import "./TransactionPage.css"; // CSS styling for this page
 
 export default function TransactionPage() {
@@ -184,6 +185,7 @@ export default function TransactionPage() {
       // Clear success message after 3 seconds
       setTimeout(() => setMessage(""), 3000);
     } catch (error) {
+      console.error("Error creating transaction:", error);
       setMessage("Error adding transaction: " + (error.response?.data?.error || error.message));
     } finally {
       setIsLoading(false);
@@ -241,6 +243,7 @@ export default function TransactionPage() {
 
   // Get the icon for a specific category
   const getCategoryIcon = (categoryName) => {
+    if (!categoryName) return "💰"; // Default icon for income without category
     const category = expenseCategories.find(cat => cat.name === categoryName);
     return category ? category.icon : "📝"; // Default icon if category not found
   };
@@ -256,6 +259,9 @@ export default function TransactionPage() {
 
   return (
     <div className="transaction-page">
+      {/* Logout Button */}
+      <LogoutButton />
+      
       <div className="transaction-container">
         {/* Header section */}
         <div className="transaction-header">
@@ -323,21 +329,23 @@ export default function TransactionPage() {
                   </select>
                 </div>
                 
-                <div className="form-group">
-                  <label>Category:</label>
-                  <select
-                    value={newTransaction.category}
-                    onChange={(e) => setNewTransaction(prev => ({ ...prev, category: e.target.value }))}
-                    required
-                  >
-                    <option value="">Select Category</option>
-                    {expenseCategories.map(cat => (
-                      <option key={cat.id} value={cat.name}>
-                        {cat.icon} {cat.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                {newTransaction.type === 'expense' && (
+                  <div className="form-group">
+                    <label>Category:</label>
+                    <select
+                      value={newTransaction.category}
+                      onChange={(e) => setNewTransaction(prev => ({ ...prev, category: e.target.value }))}
+                      required
+                    >
+                      <option value="">Select Category</option>
+                      {expenseCategories.map(cat => (
+                        <option key={cat.id} value={cat.name}>
+                          {cat.icon} {cat.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
               </div>
 
               {/* Amount and Date Row */}
@@ -393,7 +401,7 @@ export default function TransactionPage() {
             </div>
           ) : (
             <div className="transactions-list">
-              {transactions.map(transaction => (
+              {transactions.slice(0, 5).map(transaction => (
                 <div key={transaction.id} className={`transaction-item ${transaction.type}`}>
                   {/* Category Icon */}
                   <div className="transaction-icon">
@@ -402,7 +410,9 @@ export default function TransactionPage() {
                   
                   {/* Transaction Details */}
                   <div className="transaction-details">
-                    <div className="transaction-category">{transaction.category}</div>
+                    <div className="transaction-category">
+                      {transaction.type === 'income' && !transaction.category ? 'Income' : transaction.category}
+                    </div>
                     <div className="transaction-date">
                       {new Date(transaction.date).toLocaleDateString()}
                     </div>
@@ -433,7 +443,7 @@ export default function TransactionPage() {
         <div className="navigation-section">
           <button 
             className="nav-btn"
-            onClick={() => navigate('/budget')}
+            onClick={() => navigate('/budget', { state: { refresh: true } })}
           >
             ← Back to Budget
           </button>

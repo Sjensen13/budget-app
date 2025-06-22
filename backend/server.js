@@ -10,6 +10,26 @@ const express = require('express');     // Imports Express.js framework to build
 const cors = require('cors');           // Allows frontend (React) to call this server (bypasses CORS security errors)
 const { createClient } = require('@supabase/supabase-js');  // Supabase client for database access and auth
 
+// =============================================================================
+// ENVIRONMENT VARIABLE VALIDATION
+// =============================================================================
+// Check for essential environment variables on startup.
+// If any are missing, log a clear error and exit the process.
+const requiredEnv = ['SUPABASE_URL', 'SUPABASE_KEY', 'SUPABASE_SERVICE_KEY'];
+const missingEnv = requiredEnv.filter(v => !process.env[v]);
+
+if (missingEnv.length > 0) {
+  console.error(`
+    FATAL ERROR: Missing required environment variables: ${missingEnv.join(', ')}
+    Please ensure you have a .env file in the /backend directory with all the required keys.
+    Example .env file:
+    SUPABASE_URL=your_supabase_url
+    SUPABASE_KEY=your_supabase_anon_key
+    SUPABASE_SERVICE_KEY=your_supabase_service_role_key
+  `);
+  process.exit(1); // Exit the application
+}
+
 // Create Express application instance
 const app = express();          
 app.use(cors());                // Enable CORS so frontend can call backend (bypasses security errors)
@@ -28,85 +48,12 @@ const supabase = createClient(
 // =============================================================================
 // Import and use the transactions router for all transaction-related endpoints
 // This router handles CRUD operations for user transactions
-const transactionsRouter = require('./routes/transactions');
+const transactionsRouter = require('./routes/transactions')({
+  SUPABASE_URL: process.env.SUPABASE_URL,
+  SUPABASE_KEY: process.env.SUPABASE_KEY,
+  SUPABASE_SERVICE_KEY: process.env.SUPABASE_SERVICE_KEY
+});
 app.use('/api/transactions', transactionsRouter); // Mount router at /api/transactions
-
-// =============================================================================
-// LEGACY ENDPOINTS (for backward compatibility)
-// =============================================================================
-// These endpoints are kept for backward compatibility but the new router-based
-// approach above is preferred. These endpoints handle basic transaction operations.
-
-// GET /transactions - Retrieve all transactions for the authenticated user
-app.get('/transactions', async (req, res) => {
-  try {
-    // Verify JWT token from Authorization header
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ error: 'Authorization header required' });
-    }
-
-    // Extract the JWT token from the Authorization header
-    const token = authHeader.split(' ')[1];
-    
-    // Verify the token with Supabase and get the user information
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    
-    // If token is invalid or user doesn't exist, return 401 error
-    if (authError || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-
-    // Query the transactions table for all transactions belonging to this user
-    const { data, error } = await supabase
-      .from('transactions')
-      .select('*')
-      .eq('user_id', user.id); // Only return transactions for the authenticated user
-    
-    if (error) return res.status(500).json({ error });
-    res.json(data); // Return the transactions as JSON
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// POST /transactions - Create a new transaction for the authenticated user
-app.post('/transactions', async (req, res) => {
-  try {
-    // Extract transaction data from request body
-    const { type, category, amount, date } = req.body;
-    
-    // Verify JWT token (same process as GET endpoint)
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ error: 'Authorization header required' });
-    }
-
-    const token = authHeader.split(' ')[1];
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    
-    if (authError || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-    
-    // Insert the new transaction into the database
-    // Include the user_id to associate the transaction with the authenticated user
-    const { data, error } = await supabase
-      .from('transactions')
-      .insert([{ 
-        user_id: user.id,  // Associate transaction with the authenticated user
-        type,              // 'income' or 'expense'
-        category,          // Category name (e.g., 'Food & Dining')
-        amount,            // Transaction amount
-        date               // Transaction date
-      }]);
-    
-    if (error) return res.status(500).json({ error });
-    res.status(201).json(data); // Return 201 (Created) with the new transaction data
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
 
 // Start the server on port 5001
 app.listen(5001, () => console.log("Server running on port 5001"));

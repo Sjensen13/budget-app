@@ -8,8 +8,10 @@
 // - Save and manage their budget data
 
 import { useState, useEffect, useCallback } from "react"; // React hooks for state and effects
-import { useNavigate } from "react-router-dom"; // Hook for navigation
+import { useNavigate, useLocation } from "react-router-dom"; // Hook for navigation
 import supabase from "../supabaseClient"; // Supabase client for database operations
+import axios from "axios"; // HTTP client for API requests to backend
+import LogoutButton from "../components/LogoutButton"; // Logout button component
 import "./BudgetPage.css"; // CSS styling for this page
 
 export default function BudgetPage() {
@@ -19,7 +21,9 @@ export default function BudgetPage() {
   const [userProfile, setUserProfile] = useState(null); // User's profile data
   const [isLoading, setIsLoading] = useState(true); // Loading state for initial data fetch
   const [message, setMessage] = useState(""); // Success/error messages
+  const [transactions, setTransactions] = useState([]); // User's transactions
   const navigate = useNavigate(); // Navigation function
+  const location = useLocation(); // Location for checking state
 
   // =============================================================================
   // EXPENSE CATEGORIES
@@ -73,6 +77,35 @@ export default function BudgetPage() {
     }
   }, [navigate]);
 
+  // Load transactions from the backend API
+  const loadTransactions = useCallback(async () => {
+    try {
+      // Get the currently authenticated user
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) return;
+
+      // Get the session token to pass to backend for authentication
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        throw new Error("No active session");
+      }
+
+      // Make API request to backend to fetch user's transactions
+      const response = await axios.get('http://localhost:5001/api/transactions', {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`
+        }
+      });
+
+      setTransactions(response.data || []);
+    } catch (error) {
+      console.error("Error loading transactions:", error);
+      // Don't show error to user as this is not critical for budget display
+    }
+  }, []);
+
   // Load existing budget data for the user
   const loadExistingBudget = useCallback(async () => {
     try {
@@ -81,22 +114,25 @@ export default function BudgetPage() {
       
       if (!user) return;
 
-      // Fetch existing budget for this user from the 'budgets' table
+      // Fetch existing budgets for this user from the 'budgets' table
+      // Get the most recent budget instead of using .single()
       const { data, error } = await supabase
         .from('budgets')
         .select('*')
         .eq('user_id', user.id)
-        .single();
+        .order('created_at', { ascending: false })
+        .limit(1);
 
       if (error && error.code !== 'PGRST116') { // PGRST116 is "not found" error
         throw error;
       }
 
       // If budget data exists, update the expense categories with existing data
-      if (data && data.categories) {
+      // data will be an array, so we take the first (most recent) budget
+      if (data && data.length > 0 && data[0].categories) {
         setExpenseCategories(prev => 
           prev.map(cat => {
-            const existingCat = data.categories.find(existing => existing.id === cat.id);
+            const existingCat = data[0].categories.find(existing => existing.id === cat.id);
             return existingCat ? { ...cat, ...existingCat } : cat;
           })
         );
@@ -107,17 +143,60 @@ export default function BudgetPage() {
     }
   }, []);
 
+  // Calculate spent amounts for each category based on transactions
+  const calculateSpentAmounts = useCallback(() => {
+    setExpenseCategories(prev => 
+      prev.map(cat => {
+        // Filter transactions for this category and type 'expense'
+        const categoryTransactions = transactions.filter(t => 
+          t.category === cat.name && t.type === 'expense'
+        );
+        
+        // Sum up all expenses for this category
+        const totalSpent = categoryTransactions.reduce((sum, t) => sum + t.amount, 0);
+        
+        return { ...cat, spent: totalSpent };
+      })
+    );
+  }, [transactions]);
+
   // =============================================================================
   // INITIALIZATION
   // =============================================================================
-  // Load user profile and existing budget when component mounts
+  // Load user profile, existing budget, and transactions when component mounts
   useEffect(() => {
     const initializeData = async () => {
+      setIsLoading(true);
       await fetchUserProfile();
+      await loadTransactions();
       await loadExistingBudget();
+      setIsLoading(false);
     };
     initializeData();
-  }, [fetchUserProfile, loadExistingBudget]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Run only once on mount
+
+  // This effect runs when the page is revisited with a refresh request
+  useEffect(() => {
+    if (location.state?.refresh) {
+      async function refreshData() {
+        setIsLoading(true);
+        await loadTransactions();
+        setIsLoading(false);
+      }
+      refreshData();
+      // Reset the state to avoid re-triggering on other re-renders
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.state, loadTransactions, navigate, location.pathname]);
+
+  // Update spent amounts whenever transactions change
+  useEffect(() => {
+    if (transactions.length > 0) {
+      calculateSpentAmounts();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [transactions]);
 
   // =============================================================================
   // BUDGET MANAGEMENT FUNCTIONS
@@ -165,10 +244,10 @@ export default function BudgetPage() {
 
       if (fetchError) throw fetchError;
 
-      // Prepare budget data for saving
+      // Prepare budget data for saving, excluding the 'spent' field
       const budgetData = {
         user_id: user.id,
-        categories: selectedCategories,
+        categories: selectedCategories.map(({ spent, ...rest }) => rest), // Omit 'spent'
         total_budget: selectedCategories.reduce((sum, cat) => sum + cat.budget, 0),
         updated_at: new Date().toISOString()
       };
@@ -192,9 +271,10 @@ export default function BudgetPage() {
       if (result.error) throw result.error;
 
       setMessage("Budget saved successfully!");
+      setTimeout(() => setMessage(""), 3000);
 
     } catch (error) {
-      setMessage(`Error saving budget: ${error.message}`);
+      setMessage("Error saving budget: " + error.message);
     } finally {
       setIsLoading(false);
     }
@@ -211,11 +291,36 @@ export default function BudgetPage() {
       .reduce((sum, cat) => sum + cat.budget, 0);
   };
 
-  // Calculate total spent from all selected categories
+  // Calculate total spent across all categories
   const getTotalSpent = () => {
+    return expenseCategories.reduce((sum, cat) => sum + cat.spent, 0);
+  };
+
+  // Calculate total income from transactions
+  const getTotalIncome = () => {
+    return transactions
+      .filter(t => t.type === 'income')
+      .reduce((sum, t) => sum + t.amount, 0);
+  };
+
+  // Calculate remaining budget
+  const getRemaining = () => {
+    return getTotalBudget() - getTotalSpent();
+  };
+
+  // Calculate available budget (income minus spent)
+  const getAvailableBudget = () => {
+    return getTotalIncome() - getTotalSpent();
+  };
+
+  // Get a summary of all categories
+  const getCategorySummaries = () => {
     return expenseCategories
       .filter(cat => cat.selected)
-      .reduce((sum, cat) => sum + cat.spent, 0);
+      .map(cat => ({
+        ...cat,
+        remaining: cat.budget - cat.spent
+      }));
   };
 
   // =============================================================================
@@ -229,11 +334,24 @@ export default function BudgetPage() {
 
   return (
     <div className="budget-page">
+      {/* Logout Button */}
+      <LogoutButton />
+      
       <div className="budget-container">
         {/* Header section */}
         <div className="budget-header">
           <h1>My Budget Dashboard</h1>
           <p>Manage your monthly budget and track expenses</p>
+        </div>
+
+        {/* Expenses Chart Link */}
+        <div className="expenses-chart-link">
+          <button 
+            className="chart-link-btn"
+            onClick={() => navigate('/expenses-chart')}
+          >
+            📊 View Expenses Chart
+          </button>
         </div>
 
         {/* User Profile Summary */}
@@ -264,17 +382,17 @@ export default function BudgetPage() {
         {/* Budget Summary Cards */}
         <div className="budget-summary">
           <div className="summary-card">
-            <h3>Total Budget</h3>
-            <p className="amount">${getTotalBudget().toFixed(2)}</p>
+            <h3>Total Income</h3>
+            <p className="amount positive">${getTotalIncome().toFixed(2)}</p>
           </div>
           <div className="summary-card">
             <h3>Total Spent</h3>
-            <p className="amount">${getTotalSpent().toFixed(2)}</p>
+            <p className="amount negative">${getTotalSpent().toFixed(2)}</p>
           </div>
           <div className="summary-card">
-            <h3>Remaining</h3>
-            <p className={`amount ${getTotalBudget() - getTotalSpent() < 0 ? 'negative' : 'positive'}`}>
-              ${(getTotalBudget() - getTotalSpent()).toFixed(2)}
+            <h3>Available Budget</h3>
+            <p className={`amount ${getAvailableBudget() >= 0 ? 'positive' : 'negative'}`}>
+              ${getAvailableBudget().toFixed(2)}
             </p>
           </div>
         </div>
@@ -297,19 +415,150 @@ export default function BudgetPage() {
                 </div>
                 
                 {category.selected && (
-                  <div className="category-budget">
-                    <label>Budget Amount:</label>
-                    <input
-                      type="number"
-                      placeholder="0.00"
-                      value={category.budget || ''}
-                      onChange={(e) => updateCategoryBudget(category.id, e.target.value)}
-                      onClick={(e) => e.stopPropagation()} // Prevent card selection when clicking input
-                    />
+                  <div className="category-details">
+                    <div className="category-budget">
+                      <label>Budget Amount:</label>
+                      <input
+                        type="number"
+                        placeholder="0.00"
+                        value={category.budget || ''}
+                        onChange={(e) => updateCategoryBudget(category.id, e.target.value)}
+                        onClick={(e) => e.stopPropagation()} // Prevent card selection when clicking input
+                      />
+                    </div>
+                    
+                    {/* Show spent amount and progress */}
+                    <div className="category-spending">
+                      <div className="spent-info">
+                        <span className="spent-label">Spent:</span>
+                        <span className="spent-amount">${category.spent.toFixed(2)}</span>
+                      </div>
+                      
+                      {/* Progress bar */}
+                      {category.budget > 0 && (
+                        <div className="budget-progress">
+                          <div className="progress-bar">
+                            <div 
+                              className={`progress-fill ${category.spent > category.budget ? 'over-budget' : ''}`}
+                              style={{ 
+                                width: `${Math.min((category.spent / category.budget) * 100, 100)}%` 
+                              }}
+                            ></div>
+                          </div>
+                          <span className="progress-text">
+                            {Math.round((category.spent / category.budget) * 100)}%
+                          </span>
+                        </div>
+                      )}
+                      
+                      {/* Remaining amount */}
+                      {category.budget > 0 && (
+                        <div className="remaining-info">
+                          <span className="remaining-label">Remaining:</span>
+                          <span className={`remaining-amount ${category.budget - category.spent < 0 ? 'negative' : 'positive'}`}>
+                            ${(category.budget - category.spent).toFixed(2)}
+                          </span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
             ))}
+          </div>
+        </div>
+
+        {/* Recent Transactions Section */}
+        <div className="recent-transactions">
+          <h2>Recent Transactions</h2>
+          <p>Your latest income and spending activity</p>
+          
+          {transactions.length === 0 ? (
+            <div className="no-transactions">
+              <p>No transactions yet. Add transactions to see your activity here!</p>
+            </div>
+          ) : (
+            <>
+              {/* Income Transactions */}
+              {transactions.filter(t => t.type === 'income').length > 0 && (
+                <div className="transactions-section">
+                  <h3>Recent Income</h3>
+                  <div className="transactions-list">
+                    {transactions
+                      .filter(t => t.type === 'income')
+                      .slice(0, 3) // Show only the 3 most recent income transactions
+                      .map(transaction => (
+                        <div key={transaction.id} className="transaction-item income">
+                          {/* Category Icon */}
+                          <div className="transaction-icon">
+                            💰
+                          </div>
+                          
+                          {/* Transaction Details */}
+                          <div className="transaction-details">
+                            <div className="transaction-category">Income</div>
+                            <div className="transaction-date">
+                              {new Date(transaction.date).toLocaleDateString()}
+                            </div>
+                          </div>
+                          
+                          {/* Transaction Amount */}
+                          <div className="transaction-amount">
+                            <span className="amount positive">
+                              +${transaction.amount.toFixed(2)}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Expense Transactions */}
+              {transactions.filter(t => t.type === 'expense').length > 0 && (
+                <div className="transactions-section">
+                  <h3>Recent Expenses</h3>
+                  <div className="transactions-list">
+                    {transactions
+                      .filter(t => t.type === 'expense')
+                      .slice(0, 5) // Show only the 5 most recent expense transactions
+                      .map(transaction => (
+                        <div key={transaction.id} className="transaction-item">
+                          {/* Category Icon */}
+                          <div className="transaction-icon">
+                            {expenseCategories.find(cat => cat.name === transaction.category)?.icon || "📝"}
+                          </div>
+                          
+                          {/* Transaction Details */}
+                          <div className="transaction-details">
+                            <div className="transaction-category">{transaction.category}</div>
+                            <div className="transaction-date">
+                              {new Date(transaction.date).toLocaleDateString()}
+                            </div>
+                          </div>
+                          
+                          {/* Transaction Amount */}
+                          <div className="transaction-amount">
+                            <span className="amount negative">
+                              -${transaction.amount.toFixed(2)}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+          
+          {/* View All Transactions Button */}
+          <div className="view-all-transactions">
+            <button 
+              className="nav-btn"
+              onClick={() => navigate('/all-transactions')}
+            >
+              View All Transactions →
+            </button>
           </div>
         </div>
 

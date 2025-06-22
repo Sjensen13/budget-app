@@ -1,0 +1,233 @@
+/* =============================================================================
+   ALL TRANSACTIONS PAGE STYLES
+   =============================================================================
+   Clean, minimal styling for the read-only transactions page
+*/
+
+.all-transactions-page {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 20px;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.transactions-container {
+  max-width: 1000px;
+  margin: 0 auto;
+  background: white;
+  border-radius: 20px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+/* Header */
+.transactions-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 40px;
+  text-align: center;
+}
+
+.transactions-header h1 {
+  margin: 0 0 10px 0;
+  font-size: 2.5rem;
+  font-weight: 700;
+}
+
+.transactions-header p {
+  margin: 0;
+  font-size: 1.1rem;
+  opacity: 0.9;
+}
+
+/* Error Message */
+.message {
+  margin: 20px 40px;
+  padding: 15px 20px;
+  border-radius: 10px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.message.error {
+  background: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+}
+
+/* Transactions Section */
+.transactions-section {
+  padding: 30px 40px;
+  background: white;
+}
+
+.transactions-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 25px;
+}
+
+.transactions-header-row h2 {
+  margin: 0;
+  color: #333;
+  font-size: 1.5rem;
+}
+
+.transaction-count {
+  background: #f8f9fa;
+  color: #666;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+/* No Transactions */
+.no-transactions {
+  text-align: center;
+  padding: 60px 20px;
+  color: #666;
+}
+
+.no-transactions p {
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+/* Transactions List */
+.transactions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.transaction-item {
+  display: flex;
+  align-items: center;
+  padding: 20px;
+  background: #f8f9fa;
+  border-radius: 15px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.transaction-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.transaction-item.income {
+  border-left: 4px solid #28a745;
+}
+
+.transaction-item.expense {
+  border-left: 4px solid #dc3545;
+}
+
+.transaction-icon {
+  font-size: 2rem;
+  margin-right: 20px;
+  width: 50px;
+  text-align: center;
+}
+
+.transaction-details {
+  flex: 1;
+}
+
+.transaction-category {
+  font-weight: 700;
+  color: #333;
+  font-size: 1.1rem;
+  margin-bottom: 5px;
+}
+
+.transaction-date {
+  color: #999;
+  font-size: 0.9rem;
+}
+
+.transaction-amount {
+  font-weight: 700;
+  font-size: 1.2rem;
+}
+
+.amount.positive {
+  color: #28a745;
+}
+
+.amount.negative {
+  color: #dc3545;
+}
+
+/* Navigation */
+.navigation-section {
+  padding: 30px 40px;
+  background: #f8f9fa;
+  border-top: 1px solid #e9ecef;
+  text-align: center;
+}
+
+.nav-btn {
+  background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+  color: white;
+  border: none;
+  padding: 12px 30px;
+  border-radius: 25px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(108, 117, 125, 0.3);
+}
+
+.nav-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(108, 117, 125, 0.4);
+}
+
+/* Loading State */
+.all-transactions-page.loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 1.2rem;
+  color: white;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .all-transactions-page {
+    padding: 10px;
+  }
+  
+  .transactions-header {
+    padding: 30px 20px;
+  }
+  
+  .transactions-header h1 {
+    font-size: 2rem;
+  }
+  
+  .transactions-section,
+  .navigation-section {
+    padding: 20px;
+  }
+  
+  .transactions-header-row {
+    flex-direction: column;
+    gap: 10px;
+    text-align: center;
+  }
+  
+  .transaction-item {
+    flex-direction: column;
+    text-align: center;
+    gap: 15px;
+  }
+  
+  .transaction-icon {
+    margin-right: 0;
+  }
+} 

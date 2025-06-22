@@ -9,6 +9,8 @@ import AuthPage from './pages/AuthPage';           // Login/Signup page
 import SignUpInfoPage from './pages/SignUpInfoPage'; // User profile completion
 import BudgetPage from './pages/BudgetPage';       // Budget management dashboard
 import TransactionPage from './pages/TransactionPage'; // Transaction tracking
+import AllTransactionsPage from './pages/AllTransactionsPage'; // Read-only all transactions
+import ExpensesChartPage from './pages/ExpensesChartPage'; // Expenses chart visualization
 
 function App() {
   return (
@@ -25,6 +27,12 @@ function App() {
       
       {/* Transaction tracking route - for managing income and expenses */}
       <Route path="/transactions" element={<TransactionPage />} />
+      
+      {/* All transactions route - read-only view of all transactions */}
+      <Route path="/all-transactions" element={<AllTransactionsPage />} />
+      
+      {/* Expenses chart route - circular graph showing expenses by category */}
+      <Route path="/expenses-chart" element={<ExpensesChartPage />} />
     </Routes>
   );
 }

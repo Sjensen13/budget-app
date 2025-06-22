@@ -1,0 +1,74 @@
+/* =============================================================================
+   LOGOUT BUTTON STYLES
+   =============================================================================
+   CSS styles for the logout button component.
+   These styles ensure the button looks consistent across all pages.
+*/
+
+.logout-button {
+  /* Basic button styling */
+  background-color: #dc3545; /* Red color for logout action */
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  
+  /* Positioning */
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 1000; /* Ensure it's above other content */
+  
+  /* Box shadow for better visibility */
+  box-shadow: 0 2px 8px rgba(220, 53, 69, 0.3);
+}
+
+.logout-button:hover {
+  /* Hover effects */
+  background-color: #c82333;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(220, 53, 69, 0.4);
+}
+
+.logout-button:active {
+  /* Active state */
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(220, 53, 69, 0.3);
+}
+
+.logout-button:disabled {
+  /* Disabled state */
+  background-color: #6c757d;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: 0 2px 8px rgba(108, 117, 125, 0.3);
+}
+
+.logout-button:focus {
+  /* Focus state for accessibility */
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.3);
+}
+
+/* Responsive design for smaller screens */
+@media (max-width: 768px) {
+  .logout-button {
+    top: 15px;
+    right: 15px;
+    padding: 8px 16px;
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 480px) {
+  .logout-button {
+    top: 10px;
+    right: 10px;
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+} 
