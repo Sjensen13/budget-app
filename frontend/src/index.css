@@ -1,13 +1,22 @@
+/* =============================================================================
+   GLOBAL CSS STYLES
+   =============================================================================
+   This file contains global CSS styles that apply to the entire budget app.
+   These styles set up the basic typography and visual foundation.
+*/
+
+/* Reset default browser styles and set up base typography */
 body {
-  margin: 0;
+  margin: 0; /* Remove default margin */
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+    sans-serif; /* Modern system font stack for better readability */
+  -webkit-font-smoothing: antialiased; /* Smooth font rendering on WebKit browsers */
+  -moz-osx-font-smoothing: grayscale; /* Smooth font rendering on Firefox */
 }
 
+/* Style for code elements (if any are used in the app) */
 code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
+    monospace; /* Monospace font for code elements */
 } 

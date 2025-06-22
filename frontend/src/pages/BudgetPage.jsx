@@ -1,15 +1,31 @@
-import { useState, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
-import supabase from "../supabaseClient";
-import "./BudgetPage.css";
+// =============================================================================
+// BUDGET PAGE
+// =============================================================================
+// This is the main budget management dashboard where users can:
+// - View their profile information
+// - Set up budget categories and amounts
+// - Track spending against budgets
+// - Save and manage their budget data
+
+import { useState, useEffect, useCallback } from "react"; // React hooks for state and effects
+import { useNavigate } from "react-router-dom"; // Hook for navigation
+import supabase from "../supabaseClient"; // Supabase client for database operations
+import "./BudgetPage.css"; // CSS styling for this page
 
 export default function BudgetPage() {
-  const [userProfile, setUserProfile] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [message, setMessage] = useState("");
-  const navigate = useNavigate();
+  // =============================================================================
+  // STATE MANAGEMENT
+  // =============================================================================
+  const [userProfile, setUserProfile] = useState(null); // User's profile data
+  const [isLoading, setIsLoading] = useState(true); // Loading state for initial data fetch
+  const [message, setMessage] = useState(""); // Success/error messages
+  const navigate = useNavigate(); // Navigation function
 
-  // Expense categories with default budgets
+  // =============================================================================
+  // EXPENSE CATEGORIES
+  // =============================================================================
+  // Predefined list of expense categories with default budgets
+  // Each category has an ID, name, icon, budget amount, spent amount, and selection state
   const [expenseCategories, setExpenseCategories] = useState([
     { id: 1, name: "Rent/Mortgage", icon: "🏠", budget: 0, spent: 0, selected: false },
     { id: 2, name: "Food & Dining", icon: "🍽️", budget: 0, spent: 0, selected: false },
@@ -25,15 +41,23 @@ export default function BudgetPage() {
     { id: 12, name: "Other", icon: "📝", budget: 0, spent: 0, selected: false }
   ]);
 
+  // =============================================================================
+  // DATA FETCHING FUNCTIONS
+  // =============================================================================
+
+  // Fetch user profile data from the database
   const fetchUserProfile = useCallback(async () => {
     try {
+      // Get the currently authenticated user
       const { data: { user } } = await supabase.auth.getUser();
       
+      // Redirect to login if no user is authenticated
       if (!user) {
         navigate('/');
         return;
       }
 
+      // Fetch user profile data from the 'users' table
       const { data, error } = await supabase
         .from('users')
         .select('*')
@@ -49,13 +73,15 @@ export default function BudgetPage() {
     }
   }, [navigate]);
 
+  // Load existing budget data for the user
   const loadExistingBudget = useCallback(async () => {
     try {
+      // Get the currently authenticated user
       const { data: { user } } = await supabase.auth.getUser();
       
       if (!user) return;
 
-      // Fetch existing budget for this user
+      // Fetch existing budget for this user from the 'budgets' table
       const { data, error } = await supabase
         .from('budgets')
         .select('*')
@@ -66,8 +92,8 @@ export default function BudgetPage() {
         throw error;
       }
 
+      // If budget data exists, update the expense categories with existing data
       if (data && data.categories) {
-        // Update the expense categories with existing budget data
         setExpenseCategories(prev => 
           prev.map(cat => {
             const existingCat = data.categories.find(existing => existing.id === cat.id);
@@ -81,6 +107,10 @@ export default function BudgetPage() {
     }
   }, []);
 
+  // =============================================================================
+  // INITIALIZATION
+  // =============================================================================
+  // Load user profile and existing budget when component mounts
   useEffect(() => {
     const initializeData = async () => {
       await fetchUserProfile();
@@ -89,6 +119,11 @@ export default function BudgetPage() {
     initializeData();
   }, [fetchUserProfile, loadExistingBudget]);
 
+  // =============================================================================
+  // BUDGET MANAGEMENT FUNCTIONS
+  // =============================================================================
+
+  // Toggle selection state of a budget category
   const toggleCategorySelection = (categoryId) => {
     setExpenseCategories(prev => 
       prev.map(cat => 
@@ -99,6 +134,7 @@ export default function BudgetPage() {
     );
   };
 
+  // Update the budget amount for a specific category
   const updateCategoryBudget = (categoryId, newBudget) => {
     setExpenseCategories(prev => 
       prev.map(cat => 
@@ -109,15 +145,18 @@ export default function BudgetPage() {
     );
   };
 
+  // Save the current budget configuration to the database
   const saveBudget = async () => {
     setIsLoading(true);
     try {
+      // Get the currently authenticated user
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("User not authenticated.");
 
+      // Filter to only include selected categories
       const selectedCategories = expenseCategories.filter(cat => cat.selected);
 
-      // Fetch all existing budgets for the user, newest first.
+      // Fetch all existing budgets for the user, newest first
       const { data: existingBudgets, error: fetchError } = await supabase
         .from('budgets')
         .select('id, created_at')
@@ -126,6 +165,7 @@ export default function BudgetPage() {
 
       if (fetchError) throw fetchError;
 
+      // Prepare budget data for saving
       const budgetData = {
         user_id: user.id,
         categories: selectedCategories,
@@ -135,14 +175,14 @@ export default function BudgetPage() {
 
       let result;
       if (existingBudgets && existingBudgets.length > 0) {
-        // If one or more budgets exist, update the most recent one.
+        // If one or more budgets exist, update the most recent one
         const budgetToUpdate = existingBudgets[0];
         result = await supabase
           .from('budgets')
           .update(budgetData)
           .eq('id', budgetToUpdate.id);
       } else {
-        // If no budget exists, create a new one.
+        // If no budget exists, create a new one
         budgetData.created_at = new Date().toISOString();
         result = await supabase
           .from('budgets')
@@ -160,18 +200,29 @@ export default function BudgetPage() {
     }
   };
 
+  // =============================================================================
+  // CALCULATION FUNCTIONS
+  // =============================================================================
+
+  // Calculate total budget from all selected categories
   const getTotalBudget = () => {
     return expenseCategories
       .filter(cat => cat.selected)
       .reduce((sum, cat) => sum + cat.budget, 0);
   };
 
+  // Calculate total spent from all selected categories
   const getTotalSpent = () => {
     return expenseCategories
       .filter(cat => cat.selected)
       .reduce((sum, cat) => sum + cat.spent, 0);
   };
 
+  // =============================================================================
+  // RENDER
+  // =============================================================================
+
+  // Show loading state while data is being fetched
   if (isLoading) {
     return <div className="budget-page loading">Loading...</div>;
   }
@@ -179,6 +230,7 @@ export default function BudgetPage() {
   return (
     <div className="budget-page">
       <div className="budget-container">
+        {/* Header section */}
         <div className="budget-header">
           <h1>My Budget Dashboard</h1>
           <p>Manage your monthly budget and track expenses</p>
@@ -209,7 +261,7 @@ export default function BudgetPage() {
           </div>
         )}
 
-        {/* Budget Summary */}
+        {/* Budget Summary Cards */}
         <div className="budget-summary">
           <div className="summary-card">
             <h3>Total Budget</h3>
@@ -252,7 +304,7 @@ export default function BudgetPage() {
                       placeholder="0.00"
                       value={category.budget || ''}
                       onChange={(e) => updateCategoryBudget(category.id, e.target.value)}
-                      onClick={(e) => e.stopPropagation()}
+                      onClick={(e) => e.stopPropagation()} // Prevent card selection when clicking input
                     />
                   </div>
                 )}
@@ -263,6 +315,7 @@ export default function BudgetPage() {
 
         {/* Action Buttons */}
         <div className="budget-actions">
+          {/* Success/Error Message Display */}
           {message && (
             <div className={`message ${message.includes('Error') ? 'error' : 'success'}`}>
               {message}
@@ -270,6 +323,7 @@ export default function BudgetPage() {
           )}
           
           <div className="action-buttons">
+            {/* Save Budget Button */}
             <button 
               className="save-budget-btn"
               onClick={saveBudget}
@@ -278,6 +332,7 @@ export default function BudgetPage() {
               {isLoading ? 'Saving...' : 'Save Budget'}
             </button>
             
+            {/* Navigation to Transactions Page */}
             <button 
               className="nav-btn"
               onClick={() => navigate('/transactions')}

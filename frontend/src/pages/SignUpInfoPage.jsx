@@ -1,34 +1,52 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import supabase from "../supabaseClient";
-import "./SignUpInfoPage.css";
+// =============================================================================
+// SIGN UP INFO PAGE
+// =============================================================================
+// This page allows new users to complete their profile after signing up.
+// Users provide additional information like name, income, expenses, and financial goals.
+// This data is used to personalize their budget experience.
+
+import { useState } from "react"; // React hook for managing form state
+import { useNavigate } from "react-router-dom"; // Hook for programmatic navigation
+import supabase from "../supabaseClient"; // Supabase client for database operations
+import "./SignUpInfoPage.css"; // CSS styling for this page
 
 export default function SignUpInfoPage() {
-  const [fullName, setFullName] = useState("");
-  const [creditCardNumber, setCreditCardNumber] = useState("");
-  const [yearlyIncome, setYearlyIncome] = useState("");
-  const [monthlyExpenses, setMonthlyExpenses] = useState("");
-  const [financialGoal, setFinancialGoal] = useState("");
-  const [currency, setCurrency] = useState("USD");
-  const [isLoading, setIsLoading] = useState(false);
-  const [message, setMessage] = useState("");
-  const navigate = useNavigate();
+  // =============================================================================
+  // STATE MANAGEMENT
+  // =============================================================================
+  // State for all form fields and UI states
+  const [fullName, setFullName] = useState(""); // User's full name
+  const [creditCardNumber, setCreditCardNumber] = useState(""); // Credit card (currently unused)
+  const [yearlyIncome, setYearlyIncome] = useState(""); // User's yearly income range
+  const [monthlyExpenses, setMonthlyExpenses] = useState(""); // User's monthly expenses range
+  const [financialGoal, setFinancialGoal] = useState(""); // User's primary financial goal
+  const [currency, setCurrency] = useState("USD"); // User's preferred currency
+  const [isLoading, setIsLoading] = useState(false); // Loading state for form submission
+  const [message, setMessage] = useState(""); // Success/error messages
+  const navigate = useNavigate(); // Navigation function
 
+  // =============================================================================
+  // FORM SUBMISSION HANDLER
+  // =============================================================================
+  // Handle form submission to save user profile data
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setMessage("");
+    e.preventDefault(); // Prevent page reload
+    setIsLoading(true); // Show loading state
+    setMessage(""); // Clear previous messages
 
     try {
+      // Get the currently authenticated user
       const { data: { user } } = await supabase.auth.getUser();
       console.log("Current user:", user);
 
+      // Ensure user is authenticated
       if (!user) {
         throw new Error("You must be logged in to complete your profile.");
       }
 
+      // Prepare profile data for database insertion
       const profileData = { 
-        id: user.id, 
+        id: user.id, // Use the user's auth ID as the profile ID
         full_name: fullName,
         yearly_income: yearlyIncome,
         monthly_expenses: monthlyExpenses,
@@ -38,6 +56,8 @@ export default function SignUpInfoPage() {
       
       console.log("Saving profile data:", profileData);
 
+      // Save profile data to the 'users' table in Supabase
+      // Using upsert to handle both insert and update cases
       const { data, error } = await supabase
         .from('users')
         .upsert([profileData]);
@@ -50,7 +70,7 @@ export default function SignUpInfoPage() {
 
       setMessage("Profile completed successfully! Redirecting to budget dashboard...");
       
-      // Redirect to budget page after a delay
+      // Redirect to budget page after a delay to show success message
       setTimeout(() => {
         navigate('/budget');
       }, 2000);
@@ -59,19 +79,25 @@ export default function SignUpInfoPage() {
       console.error("Error saving profile:", error);
       setMessage(error.message);
     } finally {
-      setIsLoading(false);
+      setIsLoading(false); // Hide loading state
     }
   };
 
+  // =============================================================================
+  // RENDER
+  // =============================================================================
   return (
     <div className="signup-info-page">
       <div className="signup-info-container">
+        {/* Header section */}
         <div className="signup-info-header">
           <h1>Complete Your Profile</h1>
           <p>Just one more step! Please enter your name.</p>
         </div>
 
+        {/* Profile completion form */}
         <form onSubmit={handleSubmit} className="signup-info-form">
+          {/* Full Name Input */}
           <div className="form-group">
             <label htmlFor="fullName">Full Name</label>
             <input
@@ -83,6 +109,8 @@ export default function SignUpInfoPage() {
               required
             />
           </div>
+
+          {/* Yearly Income Selection */}
           <div className="yearly-income-info">
             <label htmlFor="yearlyIncome">Yearly Income</label>
             <select
@@ -100,6 +128,8 @@ export default function SignUpInfoPage() {
               <option value="100k+">$100,000+</option>
             </select>
           </div>
+
+          {/* Monthly Expenses Selection */}
           <div className="monthly-expenses-info">
             <label htmlFor="monthlyExpenses">Monthly Expenses</label>
             <select
@@ -117,6 +147,8 @@ export default function SignUpInfoPage() {
               <option value="5k+">$5,000+</option>
             </select>
           </div>
+
+          {/* Financial Goal Selection */}
           <div className="financial-goal-info">
             <label htmlFor="financialGoal">Primary Financial Goal</label>
             <select
@@ -135,6 +167,8 @@ export default function SignUpInfoPage() {
               <option value="other">Other</option>
             </select>
           </div>
+
+          {/* Currency Selection */}
           <div className="currency-info">
             <label htmlFor="currency">Preferred Currency</label>
             <select
@@ -151,12 +185,14 @@ export default function SignUpInfoPage() {
             </select>
           </div>
 
+          {/* Success/Error Message Display */}
           {message && (
             <div className={`message ${message.includes('error') ? 'error' : 'success'}`}>
               {message}
             </div>
           )}
 
+          {/* Submit Button */}
           <button 
             type="submit" 
             className="submit-button"

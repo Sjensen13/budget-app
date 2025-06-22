@@ -1,26 +1,46 @@
-import { useState, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
-import supabase from "../supabaseClient";
-import axios from "axios";
-import "./TransactionPage.css";
+// =============================================================================
+// TRANSACTION PAGE
+// =============================================================================
+// This page allows users to track their income and expenses by:
+// - Viewing all their transactions
+// - Adding new transactions
+// - Deleting transactions
+// - Seeing financial summaries (income, expenses, net balance)
+// - Communicating with the backend API for data persistence
+
+import { useState, useEffect, useCallback } from "react"; // React hooks for state and effects
+import { useNavigate } from "react-router-dom"; // Hook for navigation
+import supabase from "../supabaseClient"; // Supabase client for user authentication
+import axios from "axios"; // HTTP client for API requests to backend
+import "./TransactionPage.css"; // CSS styling for this page
 
 export default function TransactionPage() {
-  const [transactions, setTransactions] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [message, setMessage] = useState("");
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [userProfile, setUserProfile] = useState(null);
-  const navigate = useNavigate();
+  // =============================================================================
+  // STATE MANAGEMENT
+  // =============================================================================
+  const [transactions, setTransactions] = useState([]); // List of user transactions
+  const [isLoading, setIsLoading] = useState(true); // Loading state for initial data fetch
+  const [message, setMessage] = useState(""); // Success/error messages
+  const [showAddForm, setShowAddForm] = useState(false); // Toggle for add transaction form
+  const [userProfile, setUserProfile] = useState(null); // User's profile data
+  const navigate = useNavigate(); // Navigation function
 
-  // Form state for adding new transactions
+  // =============================================================================
+  // FORM STATE
+  // =============================================================================
+  // State for the new transaction form
   const [newTransaction, setNewTransaction] = useState({
-    type: 'expense',
-    category: '',
-    amount: '',
-    date: new Date().toISOString().split('T')[0]
+    type: 'expense', // Transaction type: 'income' or 'expense'
+    category: '', // Category name
+    amount: '', // Transaction amount
+    date: new Date().toISOString().split('T')[0] // Today's date as default
   });
 
-  // Expense categories (matching BudgetPage)
+  // =============================================================================
+  // EXPENSE CATEGORIES
+  // =============================================================================
+  // Predefined list of expense categories (matching BudgetPage)
+  // Used for categorizing transactions
   const expenseCategories = [
     { id: 1, name: "Rent/Mortgage", icon: "🏠" },
     { id: 2, name: "Food & Dining", icon: "🍽️" },
@@ -36,15 +56,23 @@ export default function TransactionPage() {
     { id: 12, name: "Other", icon: "📝" }
   ];
 
+  // =============================================================================
+  // DATA FETCHING FUNCTIONS
+  // =============================================================================
+
+  // Fetch user profile data from the database
   const fetchUserProfile = useCallback(async () => {
     try {
+      // Get the currently authenticated user
       const { data: { user } } = await supabase.auth.getUser();
       
+      // Redirect to login if no user is authenticated
       if (!user) {
         navigate('/');
         return;
       }
 
+      // Fetch user profile data from the 'users' table
       const { data, error } = await supabase
         .from('users')
         .select('*')
@@ -58,19 +86,23 @@ export default function TransactionPage() {
     }
   }, [navigate]);
 
+  // Load all transactions for the authenticated user
   const loadTransactions = useCallback(async () => {
     try {
+      // Get the currently authenticated user
       const { data: { user } } = await supabase.auth.getUser();
       
       if (!user) return;
 
-      // Get the session token to pass to backend
+      // Get the session token to pass to backend for authentication
       const { data: { session } } = await supabase.auth.getSession();
       
       if (!session) {
         throw new Error("No active session");
       }
 
+      // Make API request to backend to fetch user's transactions
+      // Include JWT token in Authorization header for authentication
       const response = await axios.get('http://localhost:5001/api/transactions', {
         headers: {
           'Authorization': `Bearer ${session.access_token}`
@@ -86,6 +118,10 @@ export default function TransactionPage() {
     }
   }, []);
 
+  // =============================================================================
+  // INITIALIZATION
+  // =============================================================================
+  // Load user profile and transactions when component mounts
   useEffect(() => {
     const initializeData = async () => {
       await fetchUserProfile();
@@ -94,28 +130,36 @@ export default function TransactionPage() {
     initializeData();
   }, [fetchUserProfile, loadTransactions]);
 
+  // =============================================================================
+  // TRANSACTION MANAGEMENT FUNCTIONS
+  // =============================================================================
+
+  // Handle adding a new transaction
   const handleAddTransaction = async (e) => {
-    e.preventDefault();
-    setIsLoading(true);
+    e.preventDefault(); // Prevent form submission
+    setIsLoading(true); // Show loading state
     
     try {
+      // Get the currently authenticated user
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("User not authenticated.");
 
-      // Get the session token to pass to backend
+      // Get the session token for backend authentication
       const { data: { session } } = await supabase.auth.getSession();
       
       if (!session) {
         throw new Error("No active session");
       }
 
+      // Prepare transaction data for API request
       const transactionData = {
         type: newTransaction.type,
         category: newTransaction.category,
-        amount: parseFloat(newTransaction.amount),
+        amount: parseFloat(newTransaction.amount), // Convert to number
         date: newTransaction.date
       };
 
+      // Make API request to backend to create new transaction
       const response = await axios.post('http://localhost:5001/api/transactions', transactionData, {
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
@@ -123,14 +167,18 @@ export default function TransactionPage() {
         }
       });
 
+      // Add new transaction to the beginning of the list
       setTransactions(prev => [response.data, ...prev]);
+      
+      // Reset form to default values
       setNewTransaction({
         type: 'expense',
         category: '',
         amount: '',
         date: new Date().toISOString().split('T')[0]
       });
-      setShowAddForm(false);
+      
+      setShowAddForm(false); // Hide the form
       setMessage("Transaction added successfully!");
       
       // Clear success message after 3 seconds
@@ -142,49 +190,66 @@ export default function TransactionPage() {
     }
   };
 
+  // Handle deleting a transaction
   const deleteTransaction = async (transactionId) => {
+    // Confirm deletion with user
     if (!window.confirm("Are you sure you want to delete this transaction?")) return;
     
     try {
-      // Get the session token to pass to backend
+      // Get the session token for backend authentication
       const { data: { session } } = await supabase.auth.getSession();
       
       if (!session) {
         throw new Error("No active session");
       }
 
+      // Make API request to backend to delete transaction
       await axios.delete(`http://localhost:5001/api/transactions/${transactionId}`, {
         headers: {
           'Authorization': `Bearer ${session.access_token}`
         }
       });
 
+      // Remove transaction from local state
       setTransactions(prev => prev.filter(t => t.id !== transactionId));
       setMessage("Transaction deleted successfully!");
       
+      // Clear success message after 3 seconds
       setTimeout(() => setMessage(""), 3000);
     } catch (error) {
       setMessage("Error deleting transaction: " + (error.response?.data?.error || error.message));
     }
   };
 
+  // =============================================================================
+  // CALCULATION FUNCTIONS
+  // =============================================================================
+
+  // Calculate total expenses from all transactions
   const getTotalExpenses = () => {
     return transactions
       .filter(t => t.type === 'expense')
       .reduce((sum, t) => sum + t.amount, 0);
   };
 
+  // Calculate total income from all transactions
   const getTotalIncome = () => {
     return transactions
       .filter(t => t.type === 'income')
       .reduce((sum, t) => sum + t.amount, 0);
   };
 
+  // Get the icon for a specific category
   const getCategoryIcon = (categoryName) => {
     const category = expenseCategories.find(cat => cat.name === categoryName);
-    return category ? category.icon : "📝";
+    return category ? category.icon : "📝"; // Default icon if category not found
   };
 
+  // =============================================================================
+  // RENDER
+  // =============================================================================
+
+  // Show loading state while data is being fetched
   if (isLoading) {
     return <div className="transaction-page loading">Loading...</div>;
   }
@@ -192,6 +257,7 @@ export default function TransactionPage() {
   return (
     <div className="transaction-page">
       <div className="transaction-container">
+        {/* Header section */}
         <div className="transaction-header">
           <h1>Transaction Tracker</h1>
           <p>Track your income and expenses</p>
@@ -210,7 +276,7 @@ export default function TransactionPage() {
           </div>
         )}
 
-        {/* Transaction Summary */}
+        {/* Transaction Summary Cards */}
         <div className="transaction-summary">
           <div className="summary-card">
             <h3>Total Income</h3>
@@ -243,6 +309,7 @@ export default function TransactionPage() {
           <div className="add-transaction-form">
             <h3>Add New Transaction</h3>
             <form onSubmit={handleAddTransaction}>
+              {/* Transaction Type and Category Row */}
               <div className="form-row">
                 <div className="form-group">
                   <label>Type:</label>
@@ -273,6 +340,7 @@ export default function TransactionPage() {
                 </div>
               </div>
 
+              {/* Amount and Date Row */}
               <div className="form-row">
                 <div className="form-group">
                   <label>Amount:</label>
@@ -298,6 +366,7 @@ export default function TransactionPage() {
                 </div>
               </div>
 
+              {/* Form Actions */}
               <div className="form-actions">
                 <button type="submit" className="save-btn" disabled={isLoading}>
                   {isLoading ? 'Adding...' : 'Add Transaction'}
@@ -307,7 +376,7 @@ export default function TransactionPage() {
           </div>
         )}
 
-        {/* Message Display */}
+        {/* Success/Error Message Display */}
         {message && (
           <div className={`message ${message.includes('Error') ? 'error' : 'success'}`}>
             {message}
@@ -326,10 +395,12 @@ export default function TransactionPage() {
             <div className="transactions-list">
               {transactions.map(transaction => (
                 <div key={transaction.id} className={`transaction-item ${transaction.type}`}>
+                  {/* Category Icon */}
                   <div className="transaction-icon">
                     {getCategoryIcon(transaction.category)}
                   </div>
                   
+                  {/* Transaction Details */}
                   <div className="transaction-details">
                     <div className="transaction-category">{transaction.category}</div>
                     <div className="transaction-date">
@@ -337,12 +408,14 @@ export default function TransactionPage() {
                     </div>
                   </div>
                   
+                  {/* Transaction Amount */}
                   <div className="transaction-amount">
                     <span className={`amount ${transaction.type === 'income' ? 'positive' : 'negative'}`}>
                       {transaction.type === 'income' ? '+' : '-'}${transaction.amount.toFixed(2)}
                     </span>
                   </div>
                   
+                  {/* Delete Button */}
                   <button 
                     className="delete-btn"
                     onClick={() => deleteTransaction(transaction.id)}

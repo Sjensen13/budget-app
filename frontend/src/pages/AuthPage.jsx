@@ -1,26 +1,42 @@
+// =============================================================================
+// AUTHENTICATION PAGE
+// =============================================================================
+// This page handles user authentication including both sign up and sign in.
+// It provides a clean interface for users to create accounts or log into existing ones.
+// After successful authentication, users are redirected to appropriate pages.
+
 import { useState } from "react"; // React hook to manage component state
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom"; // Hook for programmatic navigation
 import supabase from "../supabaseClient"; // Import the Supabase client for auth functions
 import "./AuthPage.css"; // Import CSS styling for the auth page
 
 export default function AuthPage() {
+  // =============================================================================
+  // STATE MANAGEMENT
+  // =============================================================================
   // State for input fields, loading state, auth mode (sign in/sign up), and messages
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [isSignUp, setIsSignUp] = useState(false);
-  const [message, setMessage] = useState("");
-  const navigate = useNavigate();
+  const [email, setEmail] = useState(""); // User's email address
+  const [password, setPassword] = useState(""); // User's password
+  const [isLoading, setIsLoading] = useState(false); // Loading state for form submission
+  const [isSignUp, setIsSignUp] = useState(false); // Toggle between sign up and sign in modes
+  const [message, setMessage] = useState(""); // Success/error messages to display
+  const navigate = useNavigate(); // Navigation function for redirecting users
 
+  // =============================================================================
+  // AUTHENTICATION HANDLER
+  // =============================================================================
   // Handle login or sign up when the form is submitted
   const handleAuth = async (e) => {
-    e.preventDefault(); // Prevent page reload
+    e.preventDefault(); // Prevent page reload on form submission
     setIsLoading(true); // Show loading state
     setMessage(""); // Clear any previous message
 
     try {
       if (isSignUp) {
-        // Sign up the user
+        // =============================================================================
+        // SIGN UP PROCESS
+        // =============================================================================
+        // Sign up the user with email and password
         const { error } = await supabase.auth.signUp({
           email,
           password,
@@ -28,6 +44,7 @@ export default function AuthPage() {
         if (error) throw error; // If there's an error, handle it
         
         // After successful sign-up, automatically sign them in
+        // This provides a seamless experience for new users
         const { error: signInError } = await supabase.auth.signInWithPassword({
           email,
           password,
@@ -38,18 +55,24 @@ export default function AuthPage() {
         setMessage("Account created and signed in successfully!"); // Show success message
         
         // Wait for a bit to let the user see the message, then redirect
+        // New users need to complete their profile
         setTimeout(() => {
           navigate('/complete-profile');
         }, 2000);
 
       } else {
-        // Sign in the user
+        // =============================================================================
+        // SIGN IN PROCESS
+        // =============================================================================
+        // Sign in the user with email and password
         const { error } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
         if (error) throw error;
         setMessage("Logged in successfully!"); // Show success message
+        
+        // Redirect existing users to the budget dashboard
         setTimeout(() => {
           navigate("/budget");
         }, 2000);
@@ -61,9 +84,13 @@ export default function AuthPage() {
     }
   };
 
+  // =============================================================================
+  // RENDER
+  // =============================================================================
   return (
     <div className="auth-page">
       <div className="auth-container">
+        {/* Header section with app title and description */}
         <div className="auth-header">
           <h1>My Budget</h1> {/* App title */}
           <p>
@@ -72,8 +99,9 @@ export default function AuthPage() {
           </p>
         </div>
 
+        {/* Authentication form */}
         <form onSubmit={handleAuth} className="auth-form">
-          {/* Email input */}
+          {/* Email input field */}
           <div className="form-group">
             <label htmlFor="email">Email</label>
             <input
@@ -86,7 +114,7 @@ export default function AuthPage() {
             />
           </div>
 
-          {/* Password input */}
+          {/* Password input field */}
           <div className="form-group">
             <label htmlFor="password">Password</label>
             <input
